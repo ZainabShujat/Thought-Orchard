@@ -1,26 +1,314 @@
 @import "tailwindcss";
 
+/*
+ * Pixel-art UI kit (spec 18.6). Colours mirror rendering/pixel/palette.ts.
+ * --px is one UI "pixel": borders, offsets and icon pixels are whole
+ * multiples of it so the UI never blurs.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --px: 4px;
+
+  --px-ink: #3b2417;
+  --px-ink-soft: #6b4a2e;
+  --px-walnut: #3b2417;
+  --px-chestnut: #7a4a26;
+  --px-chestnut-shade: #5a3519;
+  --px-honey: #c98f45;
+  --px-honey-light: #e6b46a;
+  --px-cream: #f6e7c4;
+  --px-parchment: #efd9a8;
+  --px-parchment-shade: #d9b97e;
+  --px-leaf: #4b8f3e;
+  --px-leaf-light: #9ccc4a;
+  --px-leaf-dark: #2f6b3a;
+  --px-amber: #f2c14e;
+  --px-danger: #a8322a;
+  --px-sky: #cbe7e3;
+  --px-sky-top: #8fcfe8;
+
+  --font-plain: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-ui: var(--font-pixel), ui-monospace, monospace;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+/* Readability setting: plain font everywhere (spec 18.7). */
+html[data-font="plain"] {
+  --font-ui: var(--font-plain);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+html,
+body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+  overscroll-behavior: none;
 }
 
 body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  background: var(--px-sky);
+  color: var(--px-ink);
+  font-family: var(--font-ui);
+  -webkit-tap-highlight-color: transparent;
+}
+
+html:not([data-font="plain"]) body {
+  -webkit-font-smoothing: none;
+}
+
+/* Low-resolution render target, upscaled with hard pixel edges (spec 18.3). */
+.pixel-canvas canvas {
+  image-rendering: crisp-edges;
+  image-rendering: pixelated;
+}
+
+/* ---------- Panels: notched pixel corners via side-only shadows ---------- */
+
+.px-wood,
+.px-parchment,
+.px-btn {
+  margin: var(--px);
+  border-radius: 0;
+}
+
+.px-wood {
+  background: var(--px-chestnut);
+  color: var(--px-cream);
+  box-shadow:
+    0 calc(-1 * var(--px)) 0 0 var(--px-walnut),
+    0 var(--px) 0 0 var(--px-walnut),
+    calc(-1 * var(--px)) 0 0 0 var(--px-walnut),
+    var(--px) 0 0 0 var(--px-walnut),
+    inset 0 var(--px) 0 0 var(--px-honey),
+    inset 0 calc(-1 * var(--px)) 0 0 var(--px-chestnut-shade);
+}
+
+.px-parchment {
+  background: var(--px-parchment);
+  color: var(--px-ink);
+  box-shadow:
+    0 calc(-1 * var(--px)) 0 0 var(--px-walnut),
+    0 var(--px) 0 0 var(--px-walnut),
+    calc(-1 * var(--px)) 0 0 0 var(--px-walnut),
+    var(--px) 0 0 0 var(--px-walnut),
+    inset 0 0 0 var(--px) var(--px-chestnut),
+    inset 0 0 0 calc(2 * var(--px)) var(--px-cream),
+    inset 0 calc(-3 * var(--px)) 0 0 var(--px-parchment-shade);
+}
+
+/* ---------- Buttons ---------- */
+
+.px-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: calc(2 * var(--px));
+  min-width: 44px;
+  min-height: 44px;
+  padding: calc(2 * var(--px)) calc(3 * var(--px));
+  background: var(--px-honey);
+  color: var(--px-ink);
+  font-family: inherit;
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  user-select: none;
+  box-shadow:
+    0 calc(-1 * var(--px)) 0 0 var(--px-walnut),
+    0 var(--px) 0 0 var(--px-walnut),
+    calc(-1 * var(--px)) 0 0 0 var(--px-walnut),
+    var(--px) 0 0 0 var(--px-walnut),
+    inset 0 var(--px) 0 0 var(--px-honey-light),
+    inset 0 calc(-1 * var(--px)) 0 0 var(--px-chestnut);
+}
+
+.px-btn:hover {
+  background: var(--px-honey-light);
+}
+
+/* Press down by one pixel. */
+.px-btn:active {
+  transform: translateY(var(--px));
+  box-shadow:
+    0 calc(-1 * var(--px)) 0 0 var(--px-walnut),
+    0 var(--px) 0 0 var(--px-walnut),
+    calc(-1 * var(--px)) 0 0 0 var(--px-walnut),
+    var(--px) 0 0 0 var(--px-walnut),
+    inset 0 var(--px) 0 0 var(--px-chestnut);
+}
+
+.px-btn--primary {
+  background: var(--px-leaf-light);
+}
+
+.px-btn--primary:hover {
+  background: #b2dc63;
+}
+
+.px-btn--ghost {
+  background: var(--px-parchment);
+}
+
+/* Permanent, destructive actions (spec 3.4). */
+.px-btn--danger {
+  background: var(--px-danger);
+  color: var(--px-cream);
+}
+
+.px-btn--danger:hover {
+  background: #c04434;
+}
+
+.px-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.px-btn:focus-visible,
+.px-focus:focus-visible {
+  outline: var(--px) solid var(--px-amber);
+  outline-offset: calc(2 * var(--px));
+}
+
+/* ---------- Text input ---------- */
+
+.px-input {
+  width: 100%;
+  background: var(--px-cream);
+  color: var(--px-ink);
+  font-family: inherit;
+  font-size: 1.125rem;
+  line-height: 1.5;
+  border: 0;
+  border-radius: 0;
+  padding: calc(3 * var(--px));
+  box-shadow: inset 0 0 0 var(--px) var(--px-ink-soft);
+  resize: none;
+}
+
+.px-input::placeholder {
+  color: var(--px-ink-soft);
+  opacity: 0.8;
+}
+
+.px-input:focus {
+  outline: none;
+  box-shadow: inset 0 0 0 var(--px) var(--px-ink), 0 0 0 var(--px) var(--px-amber);
+}
+
+/* ---------- Motion: stepped, never smooth (spec 18.6) ---------- */
+
+@keyframes px-rise {
+  from {
+    transform: translateY(calc(6 * var(--px)));
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+.px-rise {
+  animation: px-rise 200ms steps(4, end) both;
+}
+
+@keyframes px-bob {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(calc(-1 * var(--px)));
+  }
+}
+
+.px-bob {
+  animation: px-bob 1s steps(2, end) infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .px-rise,
+  .px-bob {
+    animation: none;
+  }
+}
+
+/* ---------- Safe areas for notches and home indicators (spec 17.6) ---------- */
+
+.safe-top {
+  padding-top: max(calc(3 * var(--px)), env(safe-area-inset-top));
+}
+
+.safe-bottom {
+  padding-bottom: max(calc(3 * var(--px)), env(safe-area-inset-bottom));
+}
+
+.safe-x {
+  padding-left: max(calc(3 * var(--px)), env(safe-area-inset-left));
+  padding-right: max(calc(3 * var(--px)), env(safe-area-inset-right));
+}
+
+/* Banded sky for the entry screen: hard colour stops, no smooth gradient. */
+.px-sky-bands {
+  background: linear-gradient(
+    to bottom,
+    #8fcfe8 0 30%,
+    #a6d9ea 30% 48%,
+    #bde3e8 48% 62%,
+    #cbe7e3 62% 72%,
+    #79b347 72% 76%,
+    #4b8f3e 76% 86%,
+    #2f6b3a 86% 100%
+  );
+}
+
+/* ---------- Landing page (references 07, 08) ---------- */
+
+/* Cream title with a hard pixel outline and drop shadow, readable over the scene. */
+.landing-title {
+  color: #fff3d6;
+  text-shadow:
+    -3px 0 0 #3b2417,
+    3px 0 0 #3b2417,
+    0 -3px 0 #3b2417,
+    0 3px 0 #3b2417,
+    5px 6px 0 rgba(59, 36, 23, 0.55);
+}
+
+.landing-tagline {
+  color: #fff3d6;
+  text-shadow:
+    -2px 0 0 #3b2417,
+    2px 0 0 #3b2417,
+    0 -2px 0 #3b2417,
+    0 2px 0 #3b2417;
+}
+
+/* Wide parchment buttons, like the references' paper tags. */
+.landing-btn {
+  justify-content: flex-start;
+  gap: calc(4 * var(--px));
+  font-size: 1.6rem;
+  background: var(--px-parchment);
+  box-shadow:
+    0 calc(-1 * var(--px)) 0 0 var(--px-walnut),
+    0 var(--px) 0 0 var(--px-walnut),
+    calc(-1 * var(--px)) 0 0 0 var(--px-walnut),
+    var(--px) 0 0 0 var(--px-walnut),
+    inset 0 0 0 var(--px) var(--px-honey-light),
+    inset 0 calc(-2 * var(--px)) 0 0 var(--px-parchment-shade),
+    0 calc(3 * var(--px)) 0 0 rgba(59, 36, 23, 0.35);
+}
+
+.landing-btn:hover {
+  background: var(--px-cream);
+}
+
+.sr-only-focusable:not(:focus) {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }

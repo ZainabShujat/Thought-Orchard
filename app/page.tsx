@@ -1,64 +1,65 @@
-import Image from "next/image";
+import Link from "next/link";
+import { getServerUser } from "@/server/auth/session";
+import { PixelIcon } from "@/components/ui/PixelIcon";
+import { LandingScene } from "@/components/landing/LandingScene";
 
-export default function Home() {
+export const dynamic = "force-dynamic";
+
+/**
+ * Landing page (spec 22.1; references 07, 08): a live pixel view down a path
+ * to a glowing thought-tree, the title above it, and two parchment buttons.
+ */
+export default async function HomePage() {
+  // The landing page stays up even if the session can't be checked.
+  const user = await getServerUser().catch(() => null);
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
+    <div className="landing relative flex min-h-dvh flex-col overflow-hidden">
+      {/* Shown until (or instead of, without WebGL) the live scene. */}
+      <div className="px-sky-bands absolute inset-0" aria-hidden="true" />
+      <LandingScene />
+
+      <header className="safe-x relative z-10 flex items-center justify-end gap-1 bg-[var(--px-cream)]/90 py-2 pt-[max(0.5rem,env(safe-area-inset-top))] shadow-[0_4px_0_0_rgba(59,36,23,0.35)]">
+        <Link href="/support" className="px-focus mr-auto px-3 py-2 text-base text-[var(--px-ink)] hover:underline">
+          Support
+        </Link>
+        {user ? (
+          <Link href="/settings" className="px-focus px-3 py-2 text-base text-[var(--px-ink)] hover:underline">
+            {user.name || "Settings"}
+          </Link>
+        ) : (
+          <>
+            <Link href="/login" className="px-focus px-3 py-2 text-base text-[var(--px-ink)] hover:underline">
+              Log in
+            </Link>
+            <Link href="/register" className="px-focus px-3 py-2 text-base text-[var(--px-ink)] hover:underline">
+              Sign up
+            </Link>
+          </>
+        )}
+      </header>
+
+      <main id="main" className="safe-x relative z-10 flex flex-1 flex-col items-center px-4 text-center">
+        <h1 className="landing-title mt-[9vh] text-6xl leading-[0.95] sm:mt-[11vh] sm:text-7xl md:text-8xl">
+          Thought
+          <br className="sm:hidden" /> Orchard
+        </h1>
+
+        {/* The tree in the scene sits here; the buttons stand on the path in front of it. */}
+        <div className="flex-1" />
+
+        <div className="mb-[6vh] flex w-full max-w-md flex-col gap-4">
+          <Link href={user ? "/orchard" : "/register"} className="px-btn landing-btn px-6 py-4 text-2xl">
+            <PixelIcon name="explorer" scale={4} />
+            Enter forest
+          </Link>
+          <Link href={user ? "/map" : "/login"} className="px-btn landing-btn px-6 py-4 text-2xl">
+            <PixelIcon name="map" scale={4} />
+            View map
+          </Link>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
+
+        <p className="landing-tagline safe-bottom mb-4 text-lg sm:text-xl">Step into a quiet place for your thoughts</p>
       </main>
     </div>
   );
