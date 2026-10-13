@@ -5,7 +5,14 @@ All notable changes to the Thought Orchard project will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] - Complete application: accounts and pages
+## [Unreleased] - Guides and navigation
+
+### Added
+- **About** (`/about`), **How to use** (`/how-to-use`) and **All pages** (`/navigation`): public pages, reachable from the home screen, the sign-in pages and the orchard's More menu.
+- **⋯ site menu** in the top bar of the home screen, the app pages and the guide pages, listing every page (different lists signed in and signed out).
+- End-to-end tests for the guides and the menu; the new pages are included in the four-size layout check.
+
+## [0.4.0] - Complete application: accounts and pages
 
 ### Added
 - **Accounts (ADR-011):** Better Auth on MongoDB. Register, sign in, sign out, 30-day database sessions in httpOnly cookies (Secure in production), password change, password reset (email via Resend when configured), sign out of other devices, account deletion that removes all orchard data. Rate limits on sign-in, sign-up, reset, password change and deletion.

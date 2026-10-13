@@ -66,7 +66,7 @@ function MoreMenu({
       ref={ref}
       role="dialog"
       aria-label="More"
-      className="px-parchment px-rise pointer-events-auto absolute bottom-full right-0 mb-4 flex w-60 flex-col gap-2 p-4"
+      className="px-parchment px-rise pointer-events-auto absolute bottom-full right-0 mb-4 flex max-h-[70dvh] w-60 flex-col gap-2 overflow-y-auto p-4"
     >
       <button
         type="button"
@@ -86,6 +86,18 @@ function MoreMenu({
       <Link href="/support" className="px-btn px-btn--ghost justify-start" onClick={onLeave}>
         <PixelIcon name="heart" scale={2} />
         Support
+      </Link>
+      <Link href="/how-to-use" className="px-btn px-btn--ghost justify-start" onClick={onLeave}>
+        <PixelIcon name="compass" scale={2} />
+        How to use
+      </Link>
+      <Link href="/about" className="px-btn px-btn--ghost justify-start" onClick={onLeave}>
+        <PixelIcon name="sprout" scale={2} />
+        About
+      </Link>
+      <Link href="/navigation" className="px-btn px-btn--ghost justify-start" onClick={onLeave}>
+        <PixelIcon name="more" scale={2} />
+        All pages
       </Link>
       <button type="button" className="px-btn px-btn--ghost justify-start" onClick={onSignOut}>
         <PixelIcon name="back" scale={2} />
@@ -170,7 +182,7 @@ export function OrchardHud({
             className="px-btn flex-col px-1 sm:px-2"
             onClick={onToggleMore}
             aria-expanded={moreOpen}
-            aria-label="More: path, settings, support, log out"
+            aria-label="More: path, settings, support, guides, log out"
           >
             <PixelIcon name="more" scale={3} />
             <span className="text-xs sm:text-sm" aria-hidden="true">

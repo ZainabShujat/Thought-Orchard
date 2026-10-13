@@ -30,6 +30,7 @@ This project is an early exploration. Nothing here is final. The product specifi
 | Map | `/map` | The orchard's real layout and tree positions |
 | Settings | `/settings` | Preferences, password, log out, delete account |
 | Support | `/support` | Public; helplines (India first) |
+| About, How to use, All pages | `/about`, `/how-to-use`, `/navigation` | Public guides; also in the ⋯ menu on every top bar |
 
 ## Local development
 

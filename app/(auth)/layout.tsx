@@ -15,9 +15,20 @@ export default async function AuthLayout({ children }: { children: React.ReactNo
         <span className="text-2xl">Thought Orchard</span>
       </Link>
       <div className="px-parchment w-full max-w-md p-6">{children}</div>
-      <Link href="/support" className="px-focus text-base underline">
-        Support
-      </Link>
+      <nav aria-label="Guides" className="flex flex-wrap justify-center gap-x-4 text-base">
+        <Link href="/about" className="px-focus underline">
+          About
+        </Link>
+        <Link href="/how-to-use" className="px-focus underline">
+          How to use
+        </Link>
+        <Link href="/navigation" className="px-focus underline">
+          All pages
+        </Link>
+        <Link href="/support" className="px-focus underline">
+          Support
+        </Link>
+      </nav>
     </main>
   );
 }

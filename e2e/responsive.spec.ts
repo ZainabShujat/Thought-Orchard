@@ -21,7 +21,7 @@ test("every page fits each viewport", async ({ page }) => {
 
   for (const vp of VIEWPORTS) {
     await page.setViewportSize({ width: vp.width, height: vp.height });
-    for (const path of ["/", "/orchard", "/notebook", "/map", "/settings", "/support"]) {
+    for (const path of ["/", "/orchard", "/notebook", "/map", "/settings", "/support", "/about", "/how-to-use", "/navigation"]) {
       await page.goto(path);
       if (path === "/orchard") await waitForOrchard(page);
       else await page.waitForLoadState("networkidle");

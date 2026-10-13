@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getServerUser } from "@/server/auth/session";
 import { PixelIcon } from "@/components/ui/PixelIcon";
 import { LandingScene } from "@/components/landing/LandingScene";
+import { SiteMenu } from "@/components/app/SiteMenu";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +20,7 @@ export default async function HomePage() {
       <div className="px-sky-bands absolute inset-0" aria-hidden="true" />
       <LandingScene />
 
-      <header className="safe-x relative z-10 flex items-center justify-end gap-1 bg-[var(--px-cream)]/90 py-2 pt-[max(0.5rem,env(safe-area-inset-top))] shadow-[0_4px_0_0_rgba(59,36,23,0.35)]">
+      <header className="safe-x relative z-20 flex items-center justify-end gap-1 bg-[var(--px-cream)]/90 py-2 pt-[max(0.5rem,env(safe-area-inset-top))] shadow-[0_4px_0_0_rgba(59,36,23,0.35)]">
         <Link href="/support" className="px-focus mr-auto px-3 py-2 text-base text-[var(--px-ink)] hover:underline">
           Support
         </Link>
@@ -37,6 +38,7 @@ export default async function HomePage() {
             </Link>
           </>
         )}
+        <SiteMenu signedIn={Boolean(user)} />
       </header>
 
       <main id="main" className="safe-x relative z-10 flex flex-1 flex-col items-center px-4 text-center">
@@ -59,7 +61,18 @@ export default async function HomePage() {
           </Link>
         </div>
 
-        <p className="landing-tagline safe-bottom mb-4 text-lg sm:text-xl">Step into a quiet place for your thoughts</p>
+        <p className="landing-tagline mb-2 text-lg sm:text-xl">Step into a quiet place for your thoughts</p>
+        <nav aria-label="Guides" className="landing-tagline safe-bottom mb-4 flex flex-wrap justify-center gap-x-4 text-base">
+          <Link href="/about" className="px-focus underline">
+            About
+          </Link>
+          <Link href="/how-to-use" className="px-focus underline">
+            How to use
+          </Link>
+          <Link href="/navigation" className="px-focus underline">
+            All pages
+          </Link>
+        </nav>
       </main>
     </div>
   );

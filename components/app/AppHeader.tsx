@@ -4,6 +4,7 @@ import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { PixelIcon } from "@/components/ui/PixelIcon";
+import { SiteMenu } from "@/components/app/SiteMenu";
 import type { PixelIconName } from "@/components/ui/pixelIcons";
 
 const LINKS: { href: string; label: string; icon: PixelIconName }[] = [
@@ -23,7 +24,7 @@ export function AppHeader({ title }: { title: string }) {
           <PixelIcon name="tree" scale={3} />
           {title}
         </h1>
-        <nav aria-label="Main">
+        <nav aria-label="Main" className="flex items-center gap-1">
           <ul className="flex flex-wrap gap-1">
             {LINKS.map((link) => {
               const current = pathname === link.href;
@@ -41,6 +42,7 @@ export function AppHeader({ title }: { title: string }) {
               );
             })}
           </ul>
+          <SiteMenu signedIn />
         </nav>
       </div>
     </header>

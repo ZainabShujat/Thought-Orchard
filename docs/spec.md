@@ -1660,6 +1660,11 @@ See 25.3. These are not deferred; they conflict with the original philosophy.
 | Map | `/map` | Signed in and onboarded | **Built**: parchment map drawn by `buildMapModel` from the same world layout and stored positions; tap a tree to visit it; text list alternative |
 | Settings | `/settings` | Signed in and onboarded | **Built**: name, plain font, motion, starting view, change password, sign out of other devices, log out, delete account |
 | Support | `/support` | Public | **Built**: India resources, international fallback (23) |
+| About | `/about` | Public | **Built (2026-10-13)**: what the app is and isn't, privacy, support |
+| How to use | `/how-to-use` | Public | **Built (2026-10-13)**: planting, reading, growth, views and controls, Notebook and Map, settings |
+| All pages (navigation) | `/navigation` | Public | **Built (2026-10-13)**: every page with a line about each; signed-in and signed-out lists differ |
+
+**Site menu (2026-10-13):** a ⋯ button in the top bar of the home screen, the app pages and the guide pages opens the same list of pages (`features/site/siteLinks.ts`). The home screen and sign-in pages also link to About, How to use and All pages, and the orchard's More menu includes them.
 | Not found / error | any unknown route; any failing page | Public | **Built** |
 
 **Not built, by design:** a Backpack (no defined purpose, OD-25); sound (OD-16); a separate profile page (the profile is in Settings); any public, sharing or discovery page (excluded, 25.3).
