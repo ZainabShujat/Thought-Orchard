@@ -1761,9 +1761,9 @@ The 3D views never leave a blank page. WebGL support is checked once per page an
 
 1. Guides and navigation (done).
 2. Growth, fading and care (done).
-3. Interpretation and regions (D3-05, D3-06, D3-08).
-4. Sharing and the Orchard (D3-07, D3-08).
-5. Painted, whimsical redesign (D3-04).
+3. Painted, whimsical redesign (D3-04), moved up on 2026-10-13. Includes the care animations, with this for Sunlight: the sun sits **higher** above the tree and a little **bigger**, and has a **halo**: a glow that falls on the tree like a spotlight. Its height follows the tree, rising as the tree grows.
+4. Interpretation and regions (D3-05, D3-06, D3-08).
+5. Sharing and the Orchard (D3-07, D3-08).
 
 ## Final product definition
 
