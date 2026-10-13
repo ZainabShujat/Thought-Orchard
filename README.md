@@ -10,7 +10,7 @@ This project is an early exploration. Nothing here is final. The product specifi
 
 - **Accounts:** email and password sign-up and sign-in, with sessions stored in MongoDB. Everything you write is private to your account.
 - **Planting:** write a thought and it becomes a tree, placed automatically in your orchard.
-- **Growth:** seven stages, New Thought to Fully Grown. Time alone takes 60 days; watering (counted once a day) shortens it to about 40. Trees never wilt or shrink.
+- **Growth and care:** seven stages, New Thought to Fully Grown. **Water** keeps a tree alive and speeds growth; **Sunlight** adds blossoms and light; **Wind** bends branches and deepens roots. About a week without water and a tree weakens (it stops growing, and watering revives it one stage lower); about a month and it fades, leaving a bare tree and the thought. Fully Grown takes about 60 days of growth and watering on 30 days, and a Fully Grown tree never fades.
 - **Two views:** Immersive (first person, eye level) and Explorer (third person, from above). Both work with a keyboard, mouse or touch.
 - **Pages:** a Notebook to search your thoughts, a Map of the orchard's real layout, Settings (including a plain-font option and reduced motion), and a public Support page with helplines (India first).
 - **Look:** a 3D world rendered as pixel art, in golden late-afternoon light with mist and fireflies. A painted look matching `docs/references/` is planned next.

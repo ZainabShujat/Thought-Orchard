@@ -3,6 +3,7 @@
    ref, which the render loop reads every frame; it is never used for React rendering. */
 
 import React, { Suspense, useEffect, useMemo, useRef, useSyncExternalStore } from "react";
+import { hasWebGL, useWebGLRecovery } from "@/lib/webgl";
 import { Canvas } from "@react-three/fiber";
 import { Thought } from "@/types/thought";
 import { GrowthState } from "@/features/growth/growthModel";
@@ -81,15 +82,6 @@ function subscribe() {
   return () => {};
 }
 
-function detectWebGL(): boolean {
-  try {
-    const canvas = document.createElement("canvas");
-    return Boolean(canvas.getContext("webgl2") || canvas.getContext("webgl"));
-  } catch {
-    return false;
-  }
-}
-
 function isTyping(): boolean {
   const el = document.activeElement;
   return el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement;
@@ -107,7 +99,8 @@ export function OrchardCanvas({
   controlsEnabled,
   onFirstInteraction,
 }: OrchardCanvasProps) {
-  const hasWebGL = useSyncExternalStore(subscribe, detectWebGL, () => true);
+  const webgl = useSyncExternalStore(subscribe, hasWebGL, () => true);
+  const recovery = useWebGLRecovery();
   const dpr = usePixelRatio();
   const reducedMotion = usePrefersReducedMotion();
   const atmosphere = ATMOSPHERES[timeOfDay];
@@ -158,7 +151,7 @@ export function OrchardCanvas({
     };
   }, [explorer, controlsEnabled, onFirstInteraction]);
 
-  if (!hasWebGL) return <WebGLFallback />;
+  if (!webgl) return <WebGLFallback />;
 
   const handleTreeTap = (thought: Thought) => {
     const entry = trees.find((t) => t.thought._id === thought._id);
@@ -273,7 +266,7 @@ export function OrchardCanvas({
 
   return (
     <div
-      className="pixel-canvas relative h-full w-full touch-none select-none"
+      className="pixel-canvas px-sky-bands relative h-full w-full touch-none select-none"
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerEnd}
@@ -284,10 +277,14 @@ export function OrchardCanvas({
     >
       <Suspense fallback={null}>
         <Canvas
+          key={recovery.canvasKey}
           dpr={dpr}
           flat
           gl={{ antialias: false, powerPreference: "low-power" }}
           camera={{ fov: 55, near: 0.1, far: 220 }}
+          // While the GPU is giving the context back, show the sky, never a blank canvas.
+          style={{ visibility: recovery.lost ? "hidden" : "visible" }}
+          onCreated={({ gl }) => recovery.attach(gl.domElement)}
         >
           <Atmosphere timeOfDay={timeOfDay} dpr={dpr} reducedMotion={reducedMotion} openRegionIds={openRegionIds} />
           <Ground openRegionIds={openRegionIds} onGroundTap={handleGroundTap} tapMaxTravelPx={TAP_MAX_TRAVEL_PX} />
@@ -309,6 +306,13 @@ export function OrchardCanvas({
           <Navigator state={explorer} view={view} trunks={trunks} walkable={walkable} reducedMotion={reducedMotion} />
         </Canvas>
       </Suspense>
+      {recovery.lost && (
+        <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-6">
+          <p role="status" className="px-parchment px-4 py-3 text-base">
+            The forest is catching its breath…
+          </p>
+        </div>
+      )}
     </div>
   );
 }

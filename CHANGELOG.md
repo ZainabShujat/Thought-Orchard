@@ -5,7 +5,22 @@ All notable changes to the Thought Orchard project will be documented in this fi
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased] - Guides and navigation
+## [Unreleased] - Growth, fading and care
+
+### Added
+- **Fading (growth model v2):** a tree weakens after about a week without water (it stops growing, droops and dims), revives one stage lower when watered, and dies after about a month (a bare tree stays and the thought is kept). Fully Grown needs 60 days of growth and watering on 30 days; Fully Grown trees are rooted and never fade.
+- **Sunlight and Wind** care alongside Water, each with its own look on the tree (warm blossoms and light; a lean, wider branches and deeper roots) and its own animation (a sun glow with rays; a gust with leaves blowing past).
+- A gentle health line on each tree's letter (thirsty soon, thirsty, faded, rooted, watering days left to grow fully).
+- The sample orchard shows every state: rooted, flourishing, thirsty, faded, revived, sunlit and windswept.
+- Spec section 29 records the 2026-10-13 direction change and the order of the next steps.
+
+### Fixed
+- **The orchard and landing page could turn white.** The WebGL check created a new GPU context on every render; the browser then discarded the oldest one, which was the orchard's own. The check now runs once, and a lost context is rebuilt automatically with the sky showing behind it.
+
+### Changed
+- How to use and About explain care and fading.
+
+## [0.5.0] - Guides and navigation
 
 ### Added
 - **About** (`/about`), **How to use** (`/how-to-use`) and **All pages** (`/navigation`): public pages, reachable from the home screen, the sign-in pages and the orchard's More menu.

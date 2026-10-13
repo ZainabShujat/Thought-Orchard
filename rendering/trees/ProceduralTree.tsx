@@ -4,7 +4,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import * as THREE from "three";
 import { ThreeEvent, useFrame } from "@react-three/fiber";
 import { Thought } from "@/types/thought";
-import { GrowthState, lightPointCount } from "@/features/growth/growthModel";
+import { CareType, GrowthState, lightPointCount } from "@/features/growth/growthModel";
 import { getTerrainHeight } from "@/rendering/environment/terrain";
 import { PALETTE } from "@/rendering/pixel/palette";
 import { brighten, glowMaterial, toonMaterial } from "@/rendering/pixel/toonMaterials";
@@ -17,9 +17,11 @@ export const TAP_MAX_TRAVEL_PX = 8;
 /** How close you must be for a tree to brighten and invite opening (spec 5.5). */
 const NEAR_DISTANCE: Record<ViewMode, number> = { immersive: 6, explorer: 3.5 };
 
-/** Visual state of a watering, driven by the page (spec 5.5). */
+/** Visual state of a care action, driven by the page (spec 5.5). */
 export interface CareFx {
   kind: "pending" | "counted" | "uncounted" | "failed";
+  /** Water falls as droplets, sunlight rises as warm motes, wind blows leaves sideways. */
+  type: CareType;
   /** Changes on every new event so repeated waterings replay. */
   key: number;
 }
@@ -38,6 +40,13 @@ const MARKER_GEOMETRY = new THREE.OctahedronGeometry(0.22, 0);
 // Large enough to read as one or two render pixels from across a clearing.
 const POINT_GEOMETRY = new THREE.BoxGeometry(0.24, 0.24, 0.24);
 const DROP_GEOMETRY = new THREE.BoxGeometry(0.07, 0.14, 0.07);
+// Sunlight: a warm glow above the canopy with rays around it.
+const SUN_GEOMETRY = new THREE.IcosahedronGeometry(0.32, 1);
+const RAY_GEOMETRY = new THREE.BoxGeometry(0.06, 0.42, 0.06);
+const RAY_COUNT = 8;
+// Wind: small flat leaves tumbling past.
+const FLAKE_GEOMETRY = new THREE.BoxGeometry(0.16, 0.025, 0.1);
+const FLAKE_COUNT = 12;
 
 const hitMaterial = new THREE.MeshBasicMaterial({ visible: false });
 const shadowMaterial = new THREE.MeshBasicMaterial({ color: PALETTE.leafDark });
@@ -46,6 +55,8 @@ const hoverRingMaterial = new THREE.MeshBasicMaterial({ color: PALETTE.blossomWh
 
 const DROP_COUNT = 18;
 const DROP_SECONDS = 1.1;
+/** How long each care effect plays after it's confirmed. */
+const FX_SECONDS: Record<CareType, number> = { water: DROP_SECONDS, sunlight: 2.4, wind: 2.4 };
 const BRIGHT_SECONDS = 2;
 const GROW_SECONDS = 0.6;
 const GROW_STEPS = 4;
@@ -89,6 +100,8 @@ export function ProceduralTree({
   const markerRef = useRef<THREE.Mesh>(null);
   const lightsRef = useRef<THREE.Group>(null);
   const dropsRef = useRef<THREE.Group>(null);
+  const sunRef = useRef<THREE.Group>(null);
+  const windRef = useRef<THREE.Group>(null);
   const [isHovered, setIsHovered] = useState(false);
   const [near, setNear] = useState(false);
   const [dithered, setDithered] = useState(false);
@@ -96,7 +109,11 @@ export function ProceduralTree({
 
   const { x, z } = thought.position;
   const y = useMemo(() => getTerrainHeight(x, z), [x, z]);
-  const model = useMemo(() => getTreeModel(thought, growth.stage), [thought, growth.stage]);
+  const { health, sunlightLevel, windLevel } = growth;
+  const model = useMemo(
+    () => getTreeModel(thought, growth.stage, { health, sunlightLevel, windLevel }),
+    [thought, growth.stage, health, sunlightLevel, windLevel]
+  );
   const footprint = Math.max(0.45, Math.min(2.2, model.height * 0.3));
   // Within a stage the canopy fills out from 90% to 100% (spec 4.6).
   const fullness = growth.stageNumber >= 4 ? 0.9 + 0.1 * growth.progress : 1;
@@ -117,6 +134,9 @@ export function ProceduralTree({
   const dropUntilConfirmed = useRef(false);
   /** -1 means "start brightening on the next frame"; otherwise a clock time to stop at. */
   const brightUntil = useRef<number | null>(null);
+  /** -1 means "start a gust next frame"; otherwise the clock time it started. */
+  const gustStart = useRef<number | null>(null);
+  const fxType: CareType = careFx?.type ?? "water";
   useEffect(() => {
     if (!careFx) return;
     if (careFx.kind === "pending") {
@@ -129,6 +149,7 @@ export function ProceduralTree({
         return;
       }
       brightUntil.current = -1;
+      if (careFx.type === "wind") gustStart.current = -1;
     }
   }, [careFx]);
 
@@ -148,9 +169,14 @@ export function ProceduralTree({
 
     // Gentle sway.
     if (swayRef.current) {
-      const amount = reducedMotion ? 0 : 0.012;
+      if (gustStart.current === -1) gustStart.current = t;
+      const gust = gustStart.current === null ? 0 : Math.max(0, 1 - (t - gustStart.current) / 2.2);
+      if (gust === 0) gustStart.current = null;
+      // A weak tree hangs still; a gust of wind swings any living tree.
+      const base = health === "healthy" ? 0.012 : health === "weak" ? 0.004 : 0;
+      const amount = reducedMotion ? 0 : base + (health === "dead" ? 0 : gust * 0.07);
       const phase = x * 0.4 + z * 0.4;
-      swayRef.current.rotation.z = Math.sin(t * 1.3 + phase) * amount;
+      swayRef.current.rotation.z = Math.sin(t * (1.3 + gust * 4) + phase) * amount;
       swayRef.current.rotation.x = Math.cos(t * 1.1 + phase) * amount * 0.7;
     }
 
@@ -194,26 +220,55 @@ export function ProceduralTree({
       });
     }
 
-    // Droplets fall from the canopy to the ground.
+    // Care effects: water falls as droplets, sunlight glows above the canopy, wind blows leaves past.
+    if (dropStart.current === -1) dropStart.current = t;
+    const start = dropStart.current;
+    const elapsed = start === null ? 0 : t - start;
+    const active =
+      start !== null && (dropUntilConfirmed.current || elapsed < FX_SECONDS[fxType]) && !(reducedMotion && elapsed > 0.6);
+    if (!active && start !== null && !dropUntilConfirmed.current) dropStart.current = null;
+    const top = Math.max(0.6, model.canopyCenter[1] + model.canopyRadius * 0.3);
+
     if (dropsRef.current) {
-      if (dropStart.current === -1) dropStart.current = t;
-      const start = dropStart.current;
-      const active =
-        start !== null && (dropUntilConfirmed.current || t - start < DROP_SECONDS) && !(reducedMotion && t - start > 0.6);
-      dropsRef.current.visible = active;
-      if (active && start !== null) {
-        const top = Math.max(0.6, model.canopyCenter[1] + model.canopyRadius * 0.3);
+      dropsRef.current.visible = active && fxType === "water";
+      if (dropsRef.current.visible) {
         dropsRef.current.children.forEach((child, i) => {
           const seed = dropSeeds[i];
-          if (reducedMotion) {
-            child.position.set(seed.x, 0.08, seed.z); // a static splash
-          } else {
-            const fall = ((t - start) * 1.4 + seed.phase) % 1;
-            child.position.set(seed.x, top * (1 - Math.floor(fall * 6) / 6), seed.z);
-          }
+          const step = Math.floor((((elapsed * 1.4 + seed.phase) % 1) * 6)) / 6;
+          if (reducedMotion) child.position.set(seed.x, 0.08, seed.z); // a static splash
+          else child.position.set(seed.x, top * (1 - step), seed.z);
         });
-      } else if (start !== null && !dropUntilConfirmed.current) {
-        dropStart.current = null;
+      }
+    }
+
+    if (sunRef.current) {
+      sunRef.current.visible = active && fxType === "sunlight";
+      if (sunRef.current.visible) {
+        // Rises gently, swells and then settles; the rays turn slowly.
+        const k = Math.min(1, elapsed / 0.6);
+        const fade = Math.max(0, Math.min(1, (FX_SECONDS.sunlight - elapsed) / 0.8));
+        const s = reducedMotion ? 1 : (0.6 + 0.5 * k) * (0.7 + 0.3 * fade) * (1 + Math.floor(Math.sin(t * 6) * 2) * 0.04);
+        sunRef.current.position.set(model.canopyCenter[0], model.height + 0.5 + (reducedMotion ? 0 : 0.3 * k), model.canopyCenter[2]);
+        sunRef.current.scale.setScalar(Math.max(0.3, model.height / 4) * s);
+        sunRef.current.rotation.y = reducedMotion ? 0 : Math.floor(t * 4) * (Math.PI / 16);
+      }
+    }
+
+    if (windRef.current) {
+      windRef.current.visible = active && fxType === "wind";
+      if (windRef.current.visible) {
+        const span = model.canopyRadius * 2.8 + 1;
+        windRef.current.children.forEach((child, i) => {
+          const seed = dropSeeds[i];
+          // Each leaf sweeps across in a loose arc, tumbling as it goes.
+          const k = reducedMotion ? 0.5 : (elapsed * 0.7 + seed.phase) % 1;
+          child.position.set(
+            -span / 2 + k * span,
+            top * (0.4 + seed.phase * 0.7) + Math.sin(k * Math.PI * 2 + i) * 0.35,
+            seed.z * 0.8 + Math.cos(k * Math.PI + i) * 0.4
+          );
+          child.rotation.set(reducedMotion ? 0 : t * 5 + i, reducedMotion ? 0 : t * 3 + i * 2, 0);
+        });
       }
     }
 
@@ -315,6 +370,30 @@ export function ProceduralTree({
         <group ref={dropsRef} visible={false}>
           {dropSeeds.map((_, i) => (
             <mesh key={i} geometry={DROP_GEOMETRY} material={glowMaterial(PALETTE.water)} />
+          ))}
+        </group>
+        <group ref={sunRef} visible={false}>
+          <mesh geometry={SUN_GEOMETRY} material={glowMaterial(PALETTE.flowerYellow)} />
+          {Array.from({ length: RAY_COUNT }, (_, i) => {
+            const a = (i / RAY_COUNT) * Math.PI * 2;
+            return (
+              <mesh
+                key={i}
+                geometry={RAY_GEOMETRY}
+                material={glowMaterial(PALETTE.amber)}
+                position={[Math.cos(a) * 0.62, Math.sin(a) * 0.62, 0]}
+                rotation={[0, 0, a - Math.PI / 2]}
+              />
+            );
+          })}
+        </group>
+        <group ref={windRef} visible={false}>
+          {Array.from({ length: FLAKE_COUNT }, (_, i) => (
+            <mesh
+              key={i}
+              geometry={FLAKE_GEOMETRY}
+              material={toonMaterial(i % 3 === 0 ? PALETTE.leafSun : i % 3 === 1 ? PALETTE.leafLight : PALETTE.leafMid)}
+            />
           ))}
         </group>
       </group>

@@ -24,7 +24,7 @@ export const createThoughtSchema = z.object({ content, idempotencyKey }).strict(
 // `.strict()` rejects system-managed fields like createdAt or position (spec 8.4).
 export const editThoughtSchema = z.object({ content }).strict();
 
-export const careSchema = z.object({ type: z.literal("water"), idempotencyKey }).strict();
+export const careSchema = z.object({ type: z.enum(["water", "sunlight", "wind"]), idempotencyKey }).strict();
 
 export const thoughtIdSchema = z.string().uuid();
 

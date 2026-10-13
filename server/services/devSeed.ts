@@ -4,13 +4,14 @@ import type { Db } from "mongodb";
 import { getDb } from "@/server/db/mongo";
 import { now } from "@/server/clock";
 import { collections } from "@/server/repositories/collections";
-import { createThought, getOrCreateOrchard, waterThought } from "@/server/services/orchardService";
+import { careForThought, createThought, getOrCreateOrchard } from "@/server/services/orchardService";
+import { ApiError } from "@/server/services/errors";
 import { SAMPLE_THOUGHTS, SampleThought } from "@/features/thoughts/sampleThoughts";
-import { DAY_MS } from "@/features/growth/growthModel";
+import { CareType, DAY_MS } from "@/features/growth/growthModel";
 
 /**
  * Development only: plants the sample thoughts through the normal create and
- * water operations, with times in the past, so every growth stage can be
+ * care operations, with times in the past, so every growth stage can be
  * reviewed (spec 20.9). Does nothing if the orchard already has thoughts.
  */
 export async function seedSampleOrchard(
@@ -32,9 +33,17 @@ export async function seedSampleOrchard(
       d,
       { plantedAt: new Date(nowMs - sample.plantedDaysAgo * DAY_MS) }
     );
-    for (const daysAgo of sample.wateredDaysAgo) {
-      await waterThought(userId, thought._id, `seed-${randomUUID()}`, d, {
+    const care: [CareType, number][] = [
+      ...sample.wateredDaysAgo.map((d): [CareType, number] => ["water", d]),
+      ...(sample.sunlitDaysAgo ?? []).map((d): [CareType, number] => ["sunlight", d]),
+      ...(sample.windDaysAgo ?? []).map((d): [CareType, number] => ["wind", d]),
+    ].sort((a, b) => b[1] - a[1]);
+    for (const [type, daysAgo] of care) {
+      await careForThought(userId, thought._id, type, `seed-${randomUUID()}`, d, {
         at: new Date(nowMs - daysAgo * DAY_MS),
+      }).catch((err) => {
+        // Care after a sample tree has faded is refused, as it would be for anyone.
+        if (!(err instanceof ApiError && err.code === "faded")) throw err;
       });
     }
   }

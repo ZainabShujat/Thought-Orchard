@@ -36,6 +36,32 @@ export interface TreeModel {
 
 type Form = "round" | "tall" | "spreading";
 
+/**
+ * How care and neglect show on a tree (spec 5.4; 2026-10-13). Wind leans it
+ * and deepens its roots, sunlight adds warm blossoms, a weak tree droops with
+ * pale leaves, and a dead tree is bare grey wood. These use their own random
+ * stream, so a tree keeps its shape and identity whatever its care.
+ */
+export interface TreeLook {
+  health: "healthy" | "weak" | "dead";
+  /** 0–3 */
+  sunlightLevel: number;
+  /** 0–3 */
+  windLevel: number;
+}
+
+export const DEFAULT_LOOK: TreeLook = { health: "healthy", sunlightLevel: 0, windLevel: 0 };
+
+const WILT = "#b9a65a";
+const DEAD_WOOD = "#6f645b";
+const DRY_LEAF = "#8a6a45";
+const SUN_BLOSSOMS = [PALETTE.blossomPeach, PALETTE.flowerYellow, PALETTE.blossomPink] as const;
+
+function mix(a: string, b: string, t: number): string {
+  const ca = new THREE.Color(a);
+  return `#${ca.lerp(new THREE.Color(b), t).getHexString()}`;
+}
+
 interface CanopySpec {
   trunkHeight: number;
   trunkRadius: number;
@@ -124,7 +150,13 @@ function mound(radius: number): TreePart {
   };
 }
 
-function smallStage(stage: GrowthStage, rng: () => number, leaves: readonly string[]): TreeModel {
+function smallStage(
+  stage: GrowthStage,
+  rng: () => number,
+  lookRng: () => number,
+  leaves: readonly string[],
+  look: TreeLook
+): TreeModel {
   const parts: TreePart[] = [];
 
   if (stage === "new-thought") {
@@ -172,6 +204,10 @@ function smallStage(stage: GrowthStage, rng: () => number, leaves: readonly stri
     rotation: [0, rng(), 0], scale: [0.2, 0.18, 0.2], sways: true,
   });
   parts.push(box([0, h + 0.24, 0], [0.09, 0.09, 0.09], PALETTE.blossomPink));
+  for (let i = 0; i < look.sunlightLevel; i++) {
+    const a = lookRng() * Math.PI * 2;
+    parts.push(box([Math.cos(a) * 0.22, h * range(lookRng, 0.75, 1.05), Math.sin(a) * 0.22], [0.08, 0.08, 0.08], pick(lookRng, SUN_BLOSSOMS)));
+  }
   return {
     parts, height: h + 0.3, trunkRadius: 0.3,
     lightAnchors: [[0, h + 0.18, 0.12], [0.2, h * 0.8, 0.15], [-0.22, h * 0.7, -0.1]],
@@ -183,14 +219,16 @@ function canopyStage(
   spec: CanopySpec,
   rng: () => number,
   lightRng: () => number,
+  lookRng: () => number,
   leaves: readonly string[],
-  form: Form
+  form: Form,
+  look: TreeLook
 ): TreeModel {
   const parts: TreePart[] = [];
   const sizeMul = range(rng, 0.92, 1.08);
 
   let canopyY = spec.canopyY * sizeMul;
-  let spread = spec.spread * sizeMul;
+  let spread = spec.spread * sizeMul * (1 + 0.07 * look.windLevel);
   let ySquash = 1;
   if (form === "tall") {
     canopyY += 0.5;
@@ -203,11 +241,15 @@ function canopyStage(
 
   const trunkTop = spec.trunkHeight * sizeMul;
   const lean = new THREE.Vector3((rng() - 0.5) * 0.25, 0, (rng() - 0.5) * 0.25);
+  // Wind: a lean in one direction, stronger with more wind.
+  const windAngle = lookRng() * Math.PI * 2;
+  lean.add(new THREE.Vector3(Math.cos(windAngle), 0, Math.sin(windAngle)).multiplyScalar(0.2 * look.windLevel));
   const trunkEnd = new THREE.Vector3(0, trunkTop, 0).add(lean);
   parts.push(limb(new THREE.Vector3(0, -0.1, 0), trunkEnd, spec.trunkRadius, PALETTE.bark));
 
-  for (let i = 0; i < spec.roots; i++) {
-    const a = (i / spec.roots) * Math.PI * 2 + rng() * 0.6;
+  const roots = spec.roots + look.windLevel;
+  for (let i = 0; i < roots; i++) {
+    const a = (i / roots) * Math.PI * 2 + (i < spec.roots ? rng() : lookRng()) * 0.6;
     const out = new THREE.Vector3(Math.cos(a) * 0.6, 0, Math.sin(a) * 0.6);
     parts.push(limb(new THREE.Vector3(0, 0.45, 0), out, spec.trunkRadius * 0.5, PALETTE.barkDark));
   }
@@ -252,11 +294,11 @@ function canopyStage(
   });
 
   const blossomColor = pick(rng, BLOSSOM_COLORS);
-  const dot = (count: number, color: string, size: number) => {
+  const dot = (count: number, color: string | (() => string), size: number, r_ = rng) => {
     for (let i = 0; i < count; i++) {
-      const c = pick(rng, clusters);
-      const theta = rng() * Math.PI * 2;
-      const phi = range(rng, 0.1, 1.3); // upper and side surfaces
+      const c = pick(r_, clusters);
+      const theta = r_() * Math.PI * 2;
+      const phi = range(r_, 0.1, 1.3); // upper and side surfaces
       const r = c.r * 0.92;
       parts.push(
         box(
@@ -266,7 +308,7 @@ function canopyStage(
             c.center.z + Math.sin(phi) * Math.sin(theta) * r,
           ],
           [size, size, size],
-          color,
+          typeof color === "function" ? color() : color,
           [0, theta, 0]
         )
       );
@@ -274,6 +316,8 @@ function canopyStage(
   };
   dot(spec.blossoms, blossomColor, 0.2);
   dot(spec.fruit, PALETTE.fruitAmber, 0.18);
+  // Sunlight: warm blossoms on top of the tree's own.
+  dot(5 * look.sunlightLevel, () => pick(lookRng, SUN_BLOSSOMS), 0.2, lookRng);
 
   const lightAnchors: [number, number, number][] = [];
   for (let i = 0; i < 20; i++) {
@@ -298,10 +342,40 @@ function canopyStage(
   };
 }
 
+/** Weak: leaves pale and droop, fruit falls. Dead: bare grey wood, a dry sprout on small stages. */
+function applyHealth(model: TreeModel, look: TreeLook, small: boolean): TreeModel {
+  if (look.health === "healthy") return model;
+  const isFoliage = (p: TreePart) => p.sways;
+  let parts: TreePart[];
+  if (look.health === "weak") {
+    parts = model.parts
+      .filter((p) => !(p.color === PALETTE.fruitAmber && p.shape === "box"))
+      .map((p) => {
+        if (!isFoliage(p)) return p;
+        const droop = p.shape === "leaf" ? p.scale[1] * 0.15 : 0.05;
+        return {
+          ...p,
+          color: mix(p.color, WILT, p.shape === "leaf" ? 0.5 : 0.6),
+          position: [p.position[0], p.position[1] - droop, p.position[2]],
+          scale: p.shape === "leaf" ? [p.scale[0], p.scale[1] * 0.85, p.scale[2]] : p.scale,
+        };
+      });
+  } else {
+    parts = model.parts
+      .filter((p) => small || !isFoliage(p))
+      .map((p) => {
+        if (p.shape === "mound") return p;
+        if (isFoliage(p)) return { ...p, color: DRY_LEAF, position: [p.position[0], p.position[1] * 0.8, p.position[2]] };
+        return { ...p, color: mix(p.color, DEAD_WOOD, 0.75) };
+      });
+  }
+  return { ...model, parts };
+}
+
 const modelCache = new Map<string, TreeModel>();
 
-export function generateTree(stage: GrowthStage, seed: number): TreeModel {
-  const key = `${stage}:${seed}`;
+export function generateTree(stage: GrowthStage, seed: number, look: TreeLook = DEFAULT_LOOK): TreeModel {
+  const key = `${stage}:${seed}:${look.health}:${look.sunlightLevel}:${look.windLevel}`;
   const cached = modelCache.get(key);
   if (cached) return cached;
 
@@ -311,7 +385,12 @@ export function generateTree(stage: GrowthStage, seed: number): TreeModel {
   const spec = CANOPY_STAGES[stage];
   // Light anchors use their own stream so adding them never changes a tree's shape.
   const lightRng = createRng(seed ^ 0x5bd1e995);
-  const model = spec ? canopyStage(spec, rng, lightRng, leaves, form) : smallStage(stage, rng, leaves);
+  // Care and health features use a third stream, for the same reason.
+  const lookRng = createRng(seed ^ 0x2c1b3c6d);
+  const shaped = spec
+    ? canopyStage(spec, rng, lightRng, lookRng, leaves, form, look)
+    : smallStage(stage, rng, lookRng, leaves, look);
+  const model = applyHealth(shaped, look, !spec);
 
   modelCache.set(key, model);
   return model;

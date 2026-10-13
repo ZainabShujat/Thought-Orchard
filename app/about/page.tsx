@@ -24,8 +24,13 @@ export default async function AboutPage() {
 
       <InfoSection title="Thoughts grow slowly">
         <p>
-          Every tree starts as a New Thought and grows through seven stages to Fully Grown. Time does most of the work.
-          Watering a tree now and then helps it along. There&apos;s no rush and nothing to keep up with.
+          Every tree starts as a New Thought and grows through seven stages to Fully Grown. Water keeps it alive,
+          sunlight brings blossoms, and wind deepens its roots.
+        </p>
+        <p>
+          A thought you never return to fades, as unwatered thoughts do: after a week it grows thirsty, and after a
+          month the tree is bare. Its words stay with you all the same. A thought you tend long enough takes root and
+          stays for good.
         </p>
       </InfoSection>
 

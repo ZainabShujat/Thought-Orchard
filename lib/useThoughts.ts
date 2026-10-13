@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { Thought } from "@/types/thought";
-import { GrowthState, computeGrowth } from "@/features/growth/growthModel";
+import { CareType, GrowthState, computeGrowth } from "@/features/growth/growthModel";
 import * as api from "@/lib/orchardApi";
-import type { WaterStatus } from "@/components/thoughts/ThoughtActions";
+import type { CareStatus } from "@/components/thoughts/ThoughtActions";
 
 /**
  * The signed-in user's thoughts, shared by the Orchard, Notebook and Map
@@ -21,17 +21,21 @@ export interface ThoughtEntry {
 
 const GROWTH_TICK_MS = 60_000;
 
-export interface WaterOutcome {
+export interface CareOutcome {
+  type: CareType;
   counted: boolean;
+  revived: boolean;
 }
+
+const VERB: Record<CareType, string> = { water: "watering", sunlight: "sunlight", wind: "wind" };
 
 export function useThoughts() {
   const [load, setLoad] = useState<LoadState>({ state: "loading" });
   const [thoughts, setThoughts] = useState<Thought[]>([]);
   const [serverOffsetMs, setServerOffsetMs] = useState(0);
   const [now, setNow] = useState(() => Date.now());
-  const [water, setWater] = useState<Record<string, WaterStatus>>({});
-  const waterKeys = useRef<Record<string, string>>({});
+  const [careState, setCareState] = useState<Record<string, CareStatus>>({});
+  const careKeys = useRef<Record<string, string>>({});
   const plantKey = useRef<string | null>(null);
 
   const refresh = useCallback(async () => {
@@ -71,27 +75,31 @@ export function useThoughts() {
     return thought;
   }, []);
 
-  /** Waters a thought. A retry after a failure reuses the same key, so it is never counted twice. */
-  const waterThought = useCallback(async (id: string): Promise<WaterOutcome | null> => {
-    const key = (waterKeys.current[id] ??= api.newRequestKey());
-    setWater((w) => ({ ...w, [id]: { state: "pending" } }));
+  /**
+   * Gives a thought water, sunlight or wind. A retry after a failure reuses
+   * the same key, so it is never counted twice.
+   */
+  const careFor = useCallback(async (id: string, type: CareType): Promise<CareOutcome | null> => {
+    const slot = `${id}:${type}`;
+    const key = (careKeys.current[slot] ??= api.newRequestKey());
+    setCareState((s) => ({ ...s, [id]: { state: "pending", type } }));
     try {
-      const result = await api.waterThought(id, key);
-      delete waterKeys.current[id];
+      const result = await api.careForThought(id, type, key);
+      delete careKeys.current[slot];
       setThoughts((prev) =>
         prev.map((t) =>
           t._id === id && !t.care.some((c) => c._id === result.event._id)
-            ? { ...t, care: [...t.care, { _id: result.event._id, type: "water", createdAt: result.event.createdAt }] }
+            ? { ...t, care: [...t.care, { _id: result.event._id, type, createdAt: result.event.createdAt }] }
             : t
         )
       );
       setServerOffsetMs(Date.parse(result.serverNow) - Date.now());
       setNow(Date.now());
-      setWater((w) => ({ ...w, [id]: { state: "idle" } }));
-      return { counted: result.counted };
+      setCareState((s) => ({ ...s, [id]: { state: "idle" } }));
+      return { type, counted: result.counted, revived: result.revived };
     } catch (err) {
       const reason = err instanceof Error ? ` ${err.message}` : "";
-      setWater((w) => ({ ...w, [id]: { state: "failed", message: `The watering couldn't be saved.${reason}` } }));
+      setCareState((s) => ({ ...s, [id]: { state: "failed", type, message: `The ${VERB[type]} couldn't be saved.${reason}` } }));
       return null;
     }
   }, []);
@@ -106,7 +114,7 @@ export function useThoughts() {
     setThoughts((prev) => prev.filter((t) => t._id !== id));
   }, []);
 
-  const waterStatus = useCallback((id: string): WaterStatus => water[id] ?? { state: "idle" }, [water]);
+  const careStatus = useCallback((id: string): CareStatus => careState[id] ?? { state: "idle" }, [careState]);
 
-  return { load, refresh, thoughts, entries, serverOffsetMs, plant, waterThought, waterStatus, edit, remove };
+  return { load, refresh, thoughts, entries, serverOffsetMs, plant, careFor, careStatus, edit, remove };
 }

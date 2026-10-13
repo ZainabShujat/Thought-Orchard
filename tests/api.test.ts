@@ -140,6 +140,57 @@ describe("watering API (spec 5.5)", () => {
   });
 });
 
+const careFor = (id: string, type: string, idempotencyKey = key(), as = cookie) =>
+  careRoute.POST(apiRequest(`/api/thoughts/${id}/care`, { body: { type, idempotencyKey }, cookie: as }), ctx(id));
+
+/** Moves a thought's planting time into the past, as if it had been planted `days` ago. */
+async function plantedDaysAgo(id: string, days: number) {
+  const at = new Date(Date.now() - days * 86_400_000);
+  await t.db.collection("thoughts").updateOne({ _id: id as never }, { $set: { createdAt: at, updatedAt: at } });
+}
+
+describe("care API: water, sunlight and wind; fading (2026-10-13)", () => {
+  it("records sunlight and wind, which change the look but not growth", async () => {
+    const { thought } = await plant("Sun and wind");
+    expect((await careFor(thought._id, "sunlight")).status).toBe(200);
+    const wind = await (await careFor(thought._id, "wind")).json();
+    expect(wind.event.type).toBe("wind");
+    const [t1] = await list();
+    expect(t1.care.map((c) => c.type).sort()).toEqual(["sunlight", "wind"]);
+    expect(t1.growth?.sunlightLevel).toBe(1);
+    expect(t1.growth?.windLevel).toBe(1);
+    expect(t1.growth?.countedWaterings).toBe(0);
+  });
+
+  it("rejects unknown kinds of care", async () => {
+    const { thought } = await plant("Only three kinds");
+    expect((await careFor(thought._id, "fertiliser")).status).toBe(400);
+  });
+
+  it("a tree untouched for over a week is weak; watering revives it a stage lower", async () => {
+    const { thought } = await plant("Forgotten for a while");
+    await plantedDaysAgo(thought._id, 10);
+    const [weak] = await list();
+    expect(weak.growth?.health).toBe("weak");
+    expect(weak.growth?.stage).toBe("young-tree");
+    const revived = await (await water(thought._id)).json();
+    expect(revived.revived).toBe(true);
+    expect(revived.growth.health).toBe("healthy");
+    expect(revived.growth.stage).toBe("budding");
+  });
+
+  it("a tree untouched for a month has faded: it refuses care, and its thought stays", async () => {
+    const { thought } = await plant("Faded but kept");
+    await plantedDaysAgo(thought._id, 31);
+    const res = await careFor(thought._id, "water");
+    expect(res.status).toBe(409);
+    expect((await res.json()).error.code).toBe("faded");
+    const [kept] = await list();
+    expect(kept.content).toBe("Faded but kept");
+    expect(kept.growth?.health).toBe("dead");
+  });
+});
+
 describe("deletion API (spec 3.4)", () => {
   it("permanently removes the thought and its care, is retry-safe, and moves no other tree", async () => {
     const a = await plant("Keep A");

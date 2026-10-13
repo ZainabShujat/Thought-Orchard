@@ -5,14 +5,15 @@ import { Thought } from "@/types/thought";
 import { GrowthState } from "@/features/growth/growthModel";
 import { getStageLabel } from "@/features/growth/stages";
 import { PixelIcon } from "@/components/ui/PixelIcon";
-import { CareHistory, ThoughtActions, WaterStatus } from "@/components/thoughts/ThoughtActions";
+import { CareHistory, CareStatus, ThoughtActions, TreeHealthNote } from "@/components/thoughts/ThoughtActions";
+import type { CareType } from "@/features/growth/growthModel";
 import { usePrefersReducedMotion } from "@/lib/usePrefersReducedMotion";
 
 interface ThoughtDetailPanelProps {
   thought: Thought;
   growth: GrowthState;
-  water: WaterStatus;
-  onWater: () => void;
+  care: CareStatus;
+  onCare: (type: CareType) => void;
   onEdit: (content: string) => Promise<void>;
   onDelete: () => Promise<void>;
   onClose: () => void;
@@ -29,7 +30,7 @@ const TICK_MS = 30;
  *
  * Mount with `key={thought._id}` so the reveal restarts per thought.
  */
-export function ThoughtDetailPanel({ thought, growth, water, onWater, onEdit, onDelete, onClose }: ThoughtDetailPanelProps) {
+export function ThoughtDetailPanel({ thought, growth, care, onCare, onEdit, onDelete, onClose }: ThoughtDetailPanelProps) {
   const reducedMotion = usePrefersReducedMotion();
   const [shown, setShown] = useState(0);
   const [editing, setEditing] = useState(false);
@@ -66,6 +67,7 @@ export function ThoughtDetailPanel({ thought, growth, water, onWater, onEdit, on
               <span className="ml-2 text-sm opacity-75">stage {growth.stageNumber} of 7</span>
             </h2>
             <CareHistory thought={thought} />
+            <TreeHealthNote growth={growth} />
           </div>
           <button type="button" className="px-btn px-btn--ghost" aria-label="Close thought" onClick={onClose}>
             <PixelIcon name="close" scale={3} />
@@ -88,8 +90,9 @@ export function ThoughtDetailPanel({ thought, growth, water, onWater, onEdit, on
 
         <ThoughtActions
           thought={thought}
-          water={water}
-          onWater={onWater}
+          growth={growth}
+          care={care}
+          onCare={onCare}
           onEdit={onEdit}
           onDelete={onDelete}
           onEditingChange={setEditing}

@@ -2,7 +2,7 @@
 ## Product Specification and Implementation Plan
 
 **Version:** 2.5  
-**Status:** Canonical specification (2026-10-12). Supersedes v1.0 (archived at `docs/archive/spec-v1.0.md`) and v1.1. Version 2.0 added the mobile app and pixel-art direction (sections 17–19). Version 2.1 adds the full-vision inventory: two view modes, map and regions, movement, time and atmosphere, a support page, the development journal, and a split between the full vision and the first milestone (sections 20–26). Version 2.2 (milestone review) defines the growth model (4.2–4.5), exact rules for both views, map and region architecture from the start, Milestone 1 as a foundation milestone, and a decision register (27). Version 2.5 adds real accounts (Better Auth on MongoDB), onboarding, and separate Notebook, Map and Settings pages (section 28). Version 2.4 resolves growth strength (Option C), permanent deletion, and India as the first support country. Version 2.3 (second review) separates time and care in the growth model, specifies the watering interaction and stage appearances, adds landscape-aware placement, a visual-review gate, deletion in Milestone 1, and country-appropriate support resources.  
+**Status:** Canonical specification (2026-10-12; **v3.0 direction change of 2026-10-13 in section 29 supersedes conflicting sections**). Supersedes v1.0 (archived at `docs/archive/spec-v1.0.md`) and v1.1. Version 2.0 added the mobile app and pixel-art direction (sections 17–19). Version 2.1 adds the full-vision inventory: two view modes, map and regions, movement, time and atmosphere, a support page, the development journal, and a split between the full vision and the first milestone (sections 20–26). Version 2.2 (milestone review) defines the growth model (4.2–4.5), exact rules for both views, map and region architecture from the start, Milestone 1 as a foundation milestone, and a decision register (27). Version 2.5 adds real accounts (Better Auth on MongoDB), onboarding, and separate Notebook, Map and Settings pages (section 28). Version 2.4 resolves growth strength (Option C), permanent deletion, and India as the first support country. Version 2.3 (second review) separates time and care in the growth model, specifies the watering interaction and stage appearances, adds landscape-aware placement, a visual-review gate, deletion in Milestone 1, and country-appropriate support resources.  
 **Product type:** Personal, private, spatial thought-journaling application  
 **Primary platform:** Mobile app (iOS and Android); the web build remains for development and as a secondary client — see section 17  
 **Art direction:** Pixel art (cozy farming-game feel) carrying the mood of the reference paintings: warm golden light, mist, fireflies, glowing thought-trees — see sections 18 and 18.9  
@@ -1716,6 +1716,54 @@ The 3D orchard's in-world Notebook overlay was removed: the Notebook is one page
 | Day 1 journal and original UML diagrams | **Not in the repository**: must come from the author |
 
 ---
+
+## 29. Direction change (v3.0, 2026-10-13)
+
+**Status:** confirmed by the product owner on 2026-10-13. This section **supersedes** earlier sections where they conflict, in particular: pixel art (18, C-13, C-15), "trees never fade" (5.3, 4.2 Option C), "no mood inference" and "no feeds or sharing" (C-08 and the exclusions list in 25). Earlier sections are kept as history.
+
+### 29.1 Decisions
+
+| # | Decision |
+|---|---|
+| D3-01 | **Fading.** About 7 days without water and a tree **weakens**: it stops growing, its leaves pale and droop, and its lights dim. Watering a weakened tree **revives** it, but it drops one stage. About 30 days without water and it **dies**: a bare tree stays in its place, the thought stays readable, and nothing is deleted. A dead tree can't be cared for. |
+| D3-02 | **Fully Grown** needs 60 days of growth *and* waterings on at least 30 separate days. A Fully Grown tree is **rooted** and never fades. |
+| D3-03 | **Care.** Water (empathy: keeps the tree alive and adds growth), Sunlight (joy and hope: warm blossoms and more light), Wind (it made you think: a lean, wider branches, deeper roots). Each counts once per 20-hour window. Only water affects growth and fading. Each has its own animation. |
+| D3-04 | **Visual style** will change from pixel art to the painted look of the references (`docs/references/`), with a whimsical feel. Planned as its own step. |
+| D3-05 | **Interpretation.** A deterministic, local reader scores each thought's tone and feeling. No outside service (no OpenAI for now). It decides the tree's type and colour and its region. |
+| D3-06 | **Regions are clusters.** Thoughts are grouped by k-means with fixed named starting points: Quiet Woods, Central Grove, Work Forest, Warm Meadow, Clarity Hills; more use classic forest names. A tree's position is decided once, when it is planted, and never moves. The interface never claims the groups are meaningful. |
+| D3-07 | **Two spaces.** *My Grove* holds only your own trees. *The Orchard* is shared and semi-endless: other people's thoughts, chosen deterministically to resemble yours, with your own trees marked by a bubble. When planting you choose **Keep in My Grove** (default, private) or **Also plant in the Orchard**; only the latter is ever shown to others. Shared thoughts are anonymous. A daily "rest clearing" invites you to stop. |
+| D3-08 | **Safety.** A crisis check looks only for genuine crisis content (self-harm or suicide, harming others, criminal intent). It never blocks writing, keeps the thought private, shows support resources, and stores no label. Shared trees can be reported and filtered. |
+| D3-09 | **Guides.** About, How to use and All pages, reachable from the home screen and a ⋯ menu (28.1). |
+
+### 29.2 Growth model version 2 (built)
+
+`features/growth/growthModel.ts`. A tree's state is replayed from its planting time and care history, so it is deterministic and correct after any absence.
+
+| Constant | Value |
+|---|---|
+| Stage thresholds (days of growth) | 0, 1, 3, 7, 14, 30, 60 |
+| Bonus per counted watering | 1 day, care ≤ healthy time / 2 |
+| Counting window | 20 hours, per care type |
+| Weakens after | 7 days without a counted watering |
+| Dies after | 30 days without a counted watering |
+| Fully Grown needs | 60 days of growth and 30 counted watering days |
+| Sunlight / wind levels | 1, 4, 10 days give levels 1, 2, 3 |
+
+Examples: watered daily, Fully Grown on day 40; watered every 3 days, Flourishing by day 60 and Fully Grown on day 87 (its 30th watering day); never watered, weak on day 7 as a Young Tree and dead on day 30.
+
+The API accepts `water`, `sunlight` and `wind` at `POST /api/thoughts/:id/care`; the response says whether it counted and whether a watering **revived** the tree. Care on a dead tree answers `409 faded`.
+
+### 29.3 Rendering reliability (built)
+
+The 3D views never leave a blank page. WebGL support is checked once per page and the test context released (browsers keep about 16 contexts and silently kill the oldest, which had turned the orchard white). If the GPU still takes the context away, the scene is rebuilt automatically while the painted sky shows behind it (`lib/webgl.ts`).
+
+### 29.4 Order of work
+
+1. Guides and navigation (done).
+2. Growth, fading and care (done).
+3. Interpretation and regions (D3-05, D3-06, D3-08).
+4. Sharing and the Orchard (D3-07, D3-08).
+5. Painted, whimsical redesign (D3-04).
 
 ## Final product definition
 

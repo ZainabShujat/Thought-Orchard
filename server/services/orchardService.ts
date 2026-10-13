@@ -7,7 +7,7 @@ import { collections, CareEventDoc, OrchardDoc, ThoughtDoc } from "@/server/repo
 import { ApiError, isDuplicateKeyError, notFound } from "@/server/services/errors";
 import { findNextTreePosition } from "@/features/placement/placementService";
 import { WORLD_LAYOUT } from "@/features/world/worldLayout";
-import { GROWTH_MODEL_VERSION, GrowthState, computeGrowth, countedWateringTimes } from "@/features/growth/growthModel";
+import { CareType, GROWTH_MODEL_VERSION, GrowthState, computeGrowth, countedCareTimes } from "@/features/growth/growthModel";
 import type { Thought } from "@/types/thought";
 
 /**
@@ -229,66 +229,79 @@ export async function deleteThought(userId: string, id: string, db?: Db): Promis
   if (result.deletedCount === 0) throw notFound();
 }
 
-export interface WaterResult {
-  event: { _id: string; type: "water"; createdAt: string };
+export interface CareResult {
+  event: { _id: string; type: CareType; createdAt: string };
+  /** Whether this care counts (at most one of each type per window). */
   counted: boolean;
   growth: GrowthState;
   stageChanged: boolean;
+  /** A watering that brought a weakened tree back (it lost a stage). */
+  revived: boolean;
   serverNow: string;
 }
+/** @deprecated name kept for older callers; same as CareResult. */
+export type WaterResult = CareResult;
 
-function describeWatering(doc: ThoughtDoc, care: CareEventDoc[], event: CareEventDoc, at: Date): WaterResult {
+function describeCare(doc: ThoughtDoc, care: CareEventDoc[], event: CareEventDoc, at: Date): CareResult {
   const records = care.map((c) => ({ _id: c._id, type: c.type, createdAt: c.createdAt.toISOString() }));
   const eventMs = event.createdAt.getTime();
-  const counted = countedWateringTimes(doc.createdAt.getTime(), records, eventMs).includes(eventMs);
+  const counted = countedCareTimes(event.type, doc.createdAt.getTime(), records, eventMs).includes(eventMs);
   const without = records.filter((r) => r._id !== event._id);
   const before = computeGrowth(doc.createdAt, without, eventMs);
   const after = computeGrowth(doc.createdAt, records, eventMs);
   return {
-    event: { _id: event._id, type: "water", createdAt: event.createdAt.toISOString() },
+    event: { _id: event._id, type: event.type, createdAt: event.createdAt.toISOString() },
     counted,
     growth: computeGrowth(doc.createdAt, records, at.getTime()),
     stageChanged: after.stageNumber !== before.stageNumber,
+    revived: event.type === "water" && before.health === "weak" && after.health === "healthy",
     serverNow: at.toISOString(),
   };
 }
 
 /**
- * Waters a thought (spec 5.1, 5.5, 10). Idempotent: the same key always
- * returns the original result and never creates a second event.
+ * Cares for a thought with water, sunlight or wind (spec 5). Idempotent: the
+ * same key always returns the original result and never creates a second
+ * event. A tree that has died can't be cared for; its thought stays readable.
  */
-export async function waterThought(
+export async function careForThought(
   userId: string,
   id: string,
+  type: CareType,
   idempotencyKey: string,
   db?: Db,
   options: { at?: Date } = {}
-): Promise<WaterResult> {
+): Promise<CareResult> {
   const d = await database(db);
   const { orchard, doc } = await findOwned(userId, id, d);
   const { careEvents } = collections(d);
 
-  const replay = async (): Promise<WaterResult | null> => {
+  const replay = async (): Promise<CareResult | null> => {
     const existing = await careEvents.findOne({ userId, idempotencyKey });
     if (!existing) return null;
     if (existing.thoughtId !== id) {
       throw new ApiError(409, "key_reused", "This request key was already used for another tree.");
     }
     const care = await careEvents.find({ thoughtId: id, userId }).toArray();
-    return describeWatering(doc, care, existing, now());
+    return describeCare(doc, care, existing, now());
   };
 
   const earlier = await replay();
   if (earlier) return earlier;
 
   const at = options.at ?? now();
-  const recent = await careEvents.countDocuments({
-    thoughtId: id,
-    userId,
-    createdAt: { $gt: new Date(at.getTime() - 86_400_000) },
-  });
+  const history = await careEvents.find({ thoughtId: id, userId }).toArray();
+  const state = computeGrowth(
+    doc.createdAt,
+    history.map((c) => ({ _id: c._id, type: c.type, createdAt: c.createdAt })),
+    at.getTime()
+  );
+  if (state.health === "dead") {
+    throw new ApiError(409, "faded", "This tree has faded. Its thought is still here to read.");
+  }
+  const recent = history.filter((c) => c.createdAt.getTime() > at.getTime() - 86_400_000).length;
   if (recent >= MAX_CARE_PER_THOUGHT_PER_DAY) {
-    throw new ApiError(429, "too_many", "This tree has had plenty of water today.");
+    throw new ApiError(429, "too_many", "This tree has had plenty of care today.");
   }
 
   const event: CareEventDoc = {
@@ -296,7 +309,7 @@ export async function waterThought(
     thoughtId: id,
     orchardId: orchard._id,
     userId,
-    type: "water",
+    type,
     createdAt: at,
     idempotencyKey,
   };
@@ -309,6 +322,16 @@ export async function waterThought(
     }
     throw err;
   }
-  const care = await careEvents.find({ thoughtId: id, userId }).toArray();
-  return describeWatering(doc, care, event, now());
+  return describeCare(doc, [...history, event], event, now());
+}
+
+/** Waters a thought: `careForThought` with water. */
+export function waterThought(
+  userId: string,
+  id: string,
+  idempotencyKey: string,
+  db?: Db,
+  options: { at?: Date } = {}
+): Promise<CareResult> {
+  return careForThought(userId, id, "water", idempotencyKey, db, options);
 }

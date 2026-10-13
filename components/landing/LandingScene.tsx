@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useLayoutEffect, useMemo, useRef, useSyncExternalStore } from "react";
+import { hasWebGL, useWebGLRecovery } from "@/lib/webgl";
 import * as THREE from "three";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { createRng, pick, range } from "@/lib/random";
@@ -305,23 +306,24 @@ function subscribe() {
   return () => {};
 }
 
-function hasWebGL(): boolean {
-  try {
-    const c = document.createElement("canvas");
-    return Boolean(c.getContext("webgl2") || c.getContext("webgl"));
-  } catch {
-    return false;
-  }
-}
-
 export function LandingScene() {
   const webgl = useSyncExternalStore(subscribe, hasWebGL, () => false);
   const dpr = usePixelRatio();
   const reducedMotion = usePrefersReducedMotion();
+  const recovery = useWebGLRecovery();
   if (!webgl) return null;
   return (
     <div className="pixel-canvas absolute inset-0" aria-hidden="true">
-      <Canvas dpr={dpr} flat gl={{ antialias: false, powerPreference: "low-power" }} camera={{ fov: 55, near: 0.1, far: 150 }}>
+      <Canvas
+        key={recovery.canvasKey}
+        dpr={dpr}
+        flat
+        gl={{ antialias: false, powerPreference: "low-power" }}
+        camera={{ fov: 55, near: 0.1, far: 150 }}
+        // The painted sky behind shows through while a lost context is rebuilt.
+        style={{ visibility: recovery.lost ? "hidden" : "visible" }}
+        onCreated={({ gl }) => recovery.attach(gl.domElement)}
+      >
         <World dpr={dpr} reducedMotion={reducedMotion} />
       </Canvas>
     </div>

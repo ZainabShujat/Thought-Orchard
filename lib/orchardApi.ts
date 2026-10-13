@@ -1,5 +1,5 @@
 import type { Thought } from "@/types/thought";
-import type { GrowthState } from "@/features/growth/growthModel";
+import type { CareType, GrowthState } from "@/features/growth/growthModel";
 
 /**
  * Client for the orchard API (spec 10). The base URL is configurable so the
@@ -77,17 +77,19 @@ export async function deleteThought(id: string): Promise<void> {
   }
 }
 
-export interface WaterResponse {
-  event: { _id: string; type: "water"; createdAt: string };
+export interface CareResponse {
+  event: { _id: string; type: CareType; createdAt: string };
   counted: boolean;
   growth: GrowthState;
   stageChanged: boolean;
+  /** A watering that brought a weakened tree back; it lost a stage. */
+  revived: boolean;
   serverNow: string;
 }
 
-export function waterThought(id: string, idempotencyKey: string): Promise<WaterResponse> {
+export function careForThought(id: string, type: CareType, idempotencyKey: string): Promise<CareResponse> {
   return request(`/api/thoughts/${id}/care`, {
     method: "POST",
-    body: JSON.stringify({ type: "water", idempotencyKey }),
+    body: JSON.stringify({ type, idempotencyKey }),
   });
 }

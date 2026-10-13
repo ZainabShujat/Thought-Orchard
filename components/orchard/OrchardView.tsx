@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import dynamic from "next/dynamic";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Thought } from "@/types/thought";
-import { computeGrowth } from "@/features/growth/growthModel";
+import { CareType, computeGrowth } from "@/features/growth/growthModel";
 import { openRegionIds } from "@/features/world/worldLayout";
 import { OrchardHud } from "@/components/orchard/OrchardHud";
 import { PlantThoughtSheet } from "@/components/orchard/PlantThoughtSheet";
@@ -136,13 +136,13 @@ export function OrchardView() {
     visit(thought);
   };
 
-  const handleWater = async (thought: Thought) => {
+  const handleCare = async (thought: Thought, type: CareType) => {
     const id = thought._id;
-    setCareFx((fx) => ({ ...fx, [id]: { kind: "pending", key: Date.now() } }));
-    const outcome = await store.waterThought(id);
+    setCareFx((fx) => ({ ...fx, [id]: { kind: "pending", type, key: Date.now() } }));
+    const outcome = await store.careFor(id, type);
     setCareFx((fx) => ({
       ...fx,
-      [id]: { kind: outcome ? (outcome.counted ? "counted" : "uncounted") : "failed", key: Date.now() },
+      [id]: { kind: outcome ? (outcome.counted ? "counted" : "uncounted") : "failed", type, key: Date.now() },
     }));
   };
 
@@ -244,8 +244,8 @@ export function OrchardView() {
           key={selected.thought._id}
           thought={selected.thought}
           growth={selected.growth}
-          water={store.waterStatus(selected.thought._id)}
-          onWater={() => void handleWater(selected.thought)}
+          care={store.careStatus(selected.thought._id)}
+          onCare={(type) => void handleCare(selected.thought, type)}
           onEdit={(content) => store.edit(selected.thought._id, content)}
           onDelete={() => handleDelete(selected.thought)}
           onClose={() => setSelectedId(null)}

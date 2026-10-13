@@ -5,7 +5,7 @@ import Link from "next/link";
 import { getStageLabel } from "@/features/growth/stages";
 import { PageShell } from "@/components/app/AppHeader";
 import { PixelIcon } from "@/components/ui/PixelIcon";
-import { CareHistory, ThoughtActions } from "@/components/thoughts/ThoughtActions";
+import { CareHistory, ThoughtActions, TreeHealthNote } from "@/components/thoughts/ThoughtActions";
 import { useThoughts } from "@/lib/useThoughts";
 
 /**
@@ -107,10 +107,12 @@ export default function NotebookPage() {
                     {open && (
                       <div id={`tend-${thought._id}`} className="mt-2 space-y-3">
                         <CareHistory thought={thought} />
+                        <TreeHealthNote growth={growth} />
                         <ThoughtActions
                           thought={thought}
-                          water={store.waterStatus(thought._id)}
-                          onWater={() => void store.waterThought(thought._id)}
+                          growth={growth}
+                          care={store.careStatus(thought._id)}
+                          onCare={(type) => void store.careFor(thought._id, type)}
                           onEdit={(content) => store.edit(thought._id, content)}
                           onDelete={() => store.remove(thought._id)}
                         />
